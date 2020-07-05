@@ -12,3 +12,9 @@ class Image:
 
     def __init__(self, image_file_path: Path):
         self.data = pygame.image.load(str(image_file_path))
+
+    def get_image(self, scale):
+        out = self.data
+
+        out = pygame.transform.scale(out, scale)
+        return out
