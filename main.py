@@ -9,6 +9,7 @@ import pygame
 
 from tools.asset_library import AssetsLibrary
 
+assets_library = AssetsLibrary((Path(__file__).parent / "Assets"))
 
 class InputsTemp:
     """Temporary class for inputs.
@@ -66,8 +67,17 @@ class Player(Ship):
 
 
 class Enemy(Ship):
-    def __init__(self, x, y, image, laser, health=100):
-        super().__init__(x, y, image, laser, health=health)
+    COLOR_MAP = {
+        "red": (assets_library.assets.ships.red.data, assets_library.assets.projectiles.laser_red.data),
+        "green": (assets_library.assets.ships.green.data, assets_library.assets.projectiles.laser_green.data),
+        "blue": (assets_library.assets.ships.blue.data, assets_library.assets.projectiles.laser_blue.data)
+    }
+
+    def __init__(self, x, y, color, health=100):
+        super().__init__(x, y, self.COLOR_MAP[color][0], self.COLOR_MAP[color][1], health=health)
+
+    def move(self, velocity):
+        self.y += velocity
 
 
 def main():
@@ -78,17 +88,18 @@ def main():
 
     ui_font = pygame.font.SysFont("Comic Sans MS", 50)
 
-    assets_library = AssetsLibrary((Path(__file__).parent / "Assets"))
-
     # todo: create display class to wrap display from pygame
     window = setup_display(inputs.width_height)
 
     background_img = assets_library.assets.bg_black
 
     run = True
+    lost = False
+    lost_count = 0
+
     FPS = 60
     lives = 5
-    level = 1
+    level = 0
     player_vel = 5
     clock = pygame.time.Clock()
 
@@ -101,6 +112,10 @@ def main():
 
     player = Player(300, 300, assets_library.assets.ships.yellow.data, assets_library.assets.projectiles.laser_yellow.data)
 
+    enemies = []
+    wave_length = 5
+    enemy_velocity = 5
+
     def redraw_window():
         window.blit(background_img.get_image(inputs.width_height), (0, 0))
 
@@ -110,14 +125,39 @@ def main():
         window.blit(lives_label, (ui_margin["left"], ui_margin["top"]))
         window.blit(level_label, (inputs.width_height[0] - level_label.get_width() - ui_margin["right"], ui_margin["top"]))
 
+        for enemy in enemies:
+            enemy.draw(window)
+
         player.draw(window)
+
+        if lost:
+            lost_label = ui_font.render("You lost!", 1, (255, 255, 255))
+            window.blit(lost_label, (inputs.width_height[1]/2 - lost_label.get_width()/2, 350))
 
         pygame.display.update()
 
     while run:
         clock.tick(FPS)
 
-        redraw_window()
+        if lost:
+            if lost_count > FPS * 3:
+                run = False
+                continue
+            else:
+                continue
+
+        if lives <= 0 or player.health <= 0:
+            lost = True
+            lost_count += 1
+
+        if len(enemies) == 0:
+            level += 1
+            for _ in range(wave_length * level):
+                enemy = Enemy(
+                    x=random.randrange(50, inputs.width_height[0] - 100),
+                    y=random.randrange(-1500, -100),
+                    color=random.choice(["red", "blue", "green"]))
+                enemies.append(enemy)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -139,6 +179,14 @@ def main():
 
         if keys[pygame.K_ESCAPE]:
             run = False
+
+        for enemy in enemies[:]:
+            enemy.move(enemy_velocity)
+            if enemy.y + enemy.get_height() > inputs.width_height[1]:
+                lives -= 1
+                enemies.remove(enemy)
+
+        redraw_window()
 
     print("Game ended")
 
